@@ -2,7 +2,11 @@ from numpy import *
 
 
 def define_data(length_of_data=None, number_of_independent_vars=None):
-    return random.rand(length_of_data, number_of_independent_vars+1)
+    return random.rand(length_of_data, number_of_independent_vars)
+
+
+def define_response(data_=None, actual_weights=None, actual_intercept=None):
+    return c_[data_, matmul(data_, actual_weights)+actual_intercept]
 
 
 def split_data(data_=None, split_ratio=None):
@@ -17,16 +21,10 @@ def split_data(data_=None, split_ratio=None):
 
 
 def obtain_gradient(weights=None, dict_data_=None, intercept=None):
-    weighted_gradient = zeros(len(weights))
-    intercept_gradient = 0
-
-    for k in range(len(dict_data_['train_x'])):
-        weighted_gradient = weighted_gradient - 2*dict_data_['train_x'][k, :] *\
-                                                (dict_data_['train_y'][k]-(dot(weights, dict_data_['train_x'][k, :]) +
-                                                                           intercept))
-        intercept_gradient = intercept_gradient - 2*(dict_data_['train_y'][k]-(dot(weights,
-                                                                                   dict_data_['train_x'][k, :]) +
-                                                                               intercept))
+    residual_vec_ = array([dict_data_['train_y'][k]-(dot(weights, dict_data_['train_x'][k, :])+intercept)
+                           for k in range(len(dict_data_['train_y']))])
+    weighted_gradient = -2*matmul(dict_data_['train_x'].T, residual_vec_)
+    intercept_gradient = -2*sum(residual_vec_)
 
     return {'weighted_gradient': weighted_gradient.astype('float')/len(dict_data_['train_y']),
             'biased_gradient': float(intercept_gradient)/len(dict_data_['train_y'])}
@@ -83,8 +81,10 @@ def obtain_loss(dict_training=None, dict_testing=None):
 
 
 def linear_regression_main(length_of_data=None, number_of_independent_vars=None, split_ratio=None, weights=None,
-                           intercept=None, learning_rate=None, weight_tolerance=None, intercept_tolerance=None):
+                           intercept=None, learning_rate=None, weight_tolerance=None, intercept_tolerance=None,
+                           actual_weights=None, actual_intercept=None):
     data = define_data(length_of_data=length_of_data, number_of_independent_vars=number_of_independent_vars)
+    data = define_response(data_=data, actual_weights=actual_weights, actual_intercept=actual_intercept)
     dict_splited = split_data(data_=data, split_ratio=split_ratio)
     params_dict = gradient_descent(weights=weights, dict_data_=dict_splited, intercept=intercept,
                                    learning_rate=learning_rate, weight_tolerance=weight_tolerance,

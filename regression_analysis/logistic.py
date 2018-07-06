@@ -4,23 +4,26 @@ from numpy import *
 from math import *
 
 
-def generate_labelled_data(length_of_data=None, number_of_independent_vars=None):
-    return c_[random.rand(length_of_data, number_of_independent_vars), random.randint(2, size=length_of_data)]
+def generate_data(length_of_data=None, number_of_independent_vars=None):
+    return random.rand(length_of_data, number_of_independent_vars)
 
 
 def sigmoid(x):
     return 1/(1+exp(-x))
 
 
-def logistic_gradients(weights=None, dict_data_=None, intercept=None):
-    weighted_gradient = zeros(len(weights))
-    intercept_gradient = 0
+def generate_labels(data_=None, actual_weights=None, actual_intercept=None):
+    labels_ = matmul(data_, actual_weights)+actual_intercept
+    labels_ = array([1 if sigmoid(float(label_)) >= 0.5 else 0 for label_ in labels_])
 
-    for k in range(len(dict_data_['train_x'])):
-        weighted_gradient = weighted_gradient + (sigmoid(dot(weights, dict_data_['train_x'][k, :])+intercept) -
-                                                 dict_data_['train_y'][k])*dict_data_['train_x'][k, :]
-        intercept_gradient = intercept_gradient + (sigmoid(dot(weights, dict_data_['train_x'][k, :])+intercept) -
-                                                   dict_data_['train_y'][k])
+    return c_[data_, labels_]
+
+
+def logistic_gradients(weights=None, dict_data_=None, intercept=None):
+    sigmoidal_residual = array([sigmoid(dot(weights, dict_data_['train_x'][k, :])+intercept)-dict_data_['train_y'][k]
+                                for k in range(len(dict_data_['train_y']))])
+    weighted_gradient = matmul(dict_data_['train_x'].T, sigmoidal_residual)
+    intercept_gradient = sum(sigmoidal_residual)
 
     return {'weighted_gradient': weighted_gradient.astype('float')/len(dict_data_['train_y']),
             'biased_gradient': float(intercept_gradient)/len(dict_data_['train_y'])}
@@ -37,7 +40,7 @@ def logistic_gradient_descent(weights=None, dict_data_=None, intercept=None, lea
         weight_diff_ = abs(weights_updated - weights)
         intercept_diff_ = abs(intercept_updated - intercept)
 
-        if len(weight_diff_[weight_diff_ > weight_tolerance]) or abs(intercept_diff_ > intercept_tolerance):
+        if len(weight_diff_[weight_diff_ > weight_tolerance]) or intercept_diff_ > intercept_tolerance:
             weights = weights_updated
             intercept = intercept_updated
         else:
@@ -49,6 +52,7 @@ def logistic_gradient_descent(weights=None, dict_data_=None, intercept=None, lea
 def estimate_labels(dict_params=None, dict_splited=None, key_=None):
     predict_ = array([dot(dict_params['weights'], dict_splited[key_][k, :])+dict_params['intercept'] for k in
                       range(len(dict_splited[key_]))])
+
     return array([1 if sigmoid(pred_) >= 0.5 else 0 for pred_ in predict_])
 
 
@@ -97,8 +101,10 @@ def testing_metrics(dict_=None, actual_key=None, predicted_key=None):
 
 
 def logistic_regression_main(length_of_data=None, number_of_independent_vars=None, split_ratio=None, weights=None,
-                             intercept=None, learning_rate=None, weight_tolerance=None, intercept_tolerance=None):
-    data = generate_labelled_data(length_of_data=length_of_data, number_of_independent_vars=number_of_independent_vars)
+                             intercept=None, learning_rate=None, weight_tolerance=None, intercept_tolerance=None,
+                             actual_weights=None, actual_intercept=None):
+    data = generate_data(length_of_data=length_of_data, number_of_independent_vars=number_of_independent_vars)
+    data = generate_labels(data_=data, actual_weights=actual_weights, actual_intercept=actual_intercept)
     dict_splited = split_data(data_=data, split_ratio=split_ratio)
     params_dict = logistic_gradient_descent(weights=weights, dict_data_=dict_splited, intercept=intercept,
                                             learning_rate=learning_rate, weight_tolerance=weight_tolerance,
